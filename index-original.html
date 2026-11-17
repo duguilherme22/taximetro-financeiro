@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Taxímetro Financeiro</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: faixa xadrez de táxi no topo, painel de resumo, depois duas colunas (lançar + lista / categorias + dicas) que viram uma no celular */
+:root {
+  --bg: #eceff2;
+  --surface: #ffffff;
+  --ink: #15181c;
+  --muted: #5a626b;
+  --line: #d4d9de;
+  --taxi: #f5b700;
+  --taxi-ink: #1b1500;
+  --pos: #1d7548;
+  --neg: #b3261e;
+  --warn-bg: #fff4cc;
+  --warn-ink: #6b4f00;
+  --ok-bg: #dff3e8;
+  --ok-ink: #145c37;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111316; --surface: #1a1d21; --ink: #eceef0; --muted: #99a2ab; --line: #2d3238;
+    --taxi: #ffc61a; --taxi-ink: #1b1500; --pos: #4cc38a; --neg: #ff7b72;
+    --warn-bg: #3a3010; --warn-ink: #ffd666; --ok-bg: #15301f; --ok-ink: #7fdcaa;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111316; --surface: #1a1d21; --ink: #eceef0; --muted: #99a2ab; --line: #2d3238;
+  --taxi: #ffc61a; --taxi-ink: #1b1500; --pos: #4cc38a; --neg: #ff7b72;
+  --warn-bg: #3a3010; --warn-ink: #ffd666; --ok-bg: #15301f; --ok-ink: #7fdcaa;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* Faixa de topo */
+.topbar { background: var(--taxi); color: var(--taxi-ink); }
+.topbar .wrap { padding-block: 18px 14px; display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+.brand h1 { font-family: var(--display); font-weight: 800; font-size: clamp(30px, 6vw, 44px); line-height: .95; margin: 0; letter-spacing: .01em; text-transform: uppercase; }
+.brand p { margin: 4px 0 0; font-weight: 500; font-size: 14px; }
+.checker { height: 14px; background-color: #15181c;
+  background-image: linear-gradient(45deg, #f5f5f0 25%, transparent 25%, transparent 75%, #f5f5f0 75%), linear-gradient(45deg, #f5f5f0 25%, transparent 25%, transparent 75%, #f5f5f0 75%);
+  background-size: 14px 14px; background-position: 0 0, 7px 7px; }
+.month-pick { display: flex; align-items: center; gap: 8px; }
+.month-pick label { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 14px; }
+.month-pick input { font: 600 15px var(--body); padding: 6px 10px; border: 2px solid var(--taxi-ink); border-radius: 6px; background: #fffbe8; color: #1b1500; color-scheme: light; }
+
+main { padding-block: 22px 40px; display: grid; gap: 22px; }
+
+/* Avisos */
+.alerts { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-size: 13.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px; }
+.chip.warn { background: var(--warn-bg); color: var(--warn-ink); }
+.chip.ok { background: var(--ok-bg); color: var(--ok-ink); }
+
+/* Resumo */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--surface); padding: 14px 16px; min-width: 0; }
+.stat .lbl { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; font-size: 13px; color: var(--muted); }
+.stat .val { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 3.4vw, 32px); line-height: 1.1; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.stat .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.stat.hl { background: var(--ink); color: var(--bg); }
+.stat.hl .lbl, .stat.hl .sub { color: var(--bg); opacity: .75; }
+.pos { color: var(--pos); } .neg { color: var(--neg); }
+.stat.hl .pos, .stat.hl .neg { color: var(--taxi); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.panel h2 { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .03em; font-size: 22px; margin: 0 0 12px; text-wrap: balance; }
+.stack { display: grid; gap: 22px; min-width: 0; }
+
+/* Formulário */
+form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.field input, .field select { font: 500 15px var(--body); padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); width: 100%; }
+.field select option, .field select optgroup { background: var(--surface); color: var(--ink); }
+.semjs { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 14px; border-radius: 8px; font-weight: 600; margin: 0; }
+.field input:focus, .field select:focus, button:focus-visible, .month-pick input:focus { outline: 3px solid var(--taxi); outline-offset: 1px; }
+.btn { font: 700 15px var(--display); text-transform: uppercase; letter-spacing: .08em; padding: 11px 16px; border-radius: 6px; border: 0; cursor: pointer; background: var(--taxi); color: var(--taxi-ink); }
+.btn:hover { filter: brightness(1.06); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-size: 13px; padding: 7px 12px; }
+.formmsg { grid-column: 1 / -1; font-size: 13.5px; min-height: 1.2em; color: var(--muted); margin: 0; }
+
+/* Lista */
+.listhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 20px 0 8px; }
+.listhead h3 { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 17px; margin: 0; }
+.tablebox { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 2px solid var(--line); }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.date { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cat { font-weight: 600; }
+.desc { color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 1px 6px; border-radius: 4px; background: var(--warn-bg); color: var(--warn-ink); margin-left: 6px; vertical-align: 1px; }
+.del { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.del:hover { color: var(--neg); }
+.empty { color: var(--muted); padding: 16px 8px; text-align: center; }
+.confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13.5px; }
+.confirm .btn { font-size: 13px; padding: 7px 12px; background: var(--neg); color: #fff; }
+
+/* Categorias */
+.bars { display: grid; gap: 10px; }
+.bar .row { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.bar .row span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+.track { height: 10px; background: var(--bg); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.fill { height: 100%; background: var(--ink); border-radius: 3px; }
+.fill.fuel { background: var(--taxi); }
+
+/* Km e limite */
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.kpi { border-top: 2px solid var(--line); padding-top: 8px; }
+.kpi .lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.kpi .val { font-family: var(--display); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; }
+.limit .track { height: 14px; }
+.limit .fill { background: var(--pos); }
+.limit .fill.alert { background: var(--neg); }
+.limit p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); }
+
+/* Dicas */
+.tips { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.tips li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; font-size: 14.5px; }
+.tips b { display: block; }
+.tips .n { font-family: var(--display); font-weight: 800; font-size: 18px; background: var(--taxi); color: var(--taxi-ink); border-radius: 4px; text-align: center; height: 26px; line-height: 26px; }
+.foot { font-size: 12.5px; color: var(--muted); }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  form { grid-template-columns: minmax(0, 1fr); }
+  .kpis { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) { .fill { transition: width .4s ease; } }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <h1>Taxímetro Financeiro</h1>
+      <p>Controle de caixa do taxista MEI</p>
+    </div>
+    <div class="month-pick">
+      <label for="mes">Mês</label>
+      <input type="month" id="mes">
+    </div>
+  </div>
+  <div class="checker" aria-hidden="true"></div>
+</header>
+
+<main class="wrap">
+  <p class="semjs" id="semJs">Os cálculos não carregaram. Abra este arquivo no Chrome (não no visualizador de arquivos do celular).</p>
+  <div class="alerts" id="alerts"></div>
+
+  <section class="summary" aria-label="Resumo do mês">
+    <div class="stat"><div class="lbl">Faturamento</div><div class="val" id="sFat">—</div><div class="sub">corridas no mês</div></div>
+    <div class="stat"><div class="lbl">Despesas do táxi</div><div class="val" id="sDesp">—</div><div class="sub" id="sDespSub">combustível, peças, DAS…</div></div>
+    <div class="stat"><div class="lbl">Retirada pessoal</div><div class="val" id="sRet">—</div><div class="sub">pró-labore para casa</div></div>
+    <div class="stat hl"><div class="lbl">Sobra no caixa</div><div class="val" id="sSobra">—</div><div class="sub" id="sLucro">lucro —</div></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Lançar movimento</h2>
+      <form id="form" novalidate>
+        <div class="field">
+          <label for="fCat">Tópico</label>
+          <select id="fCat" required>
+            <optgroup label="Entradas">
+              <option value="corrida">Corridas (rua/ponto)</option>
+              <option value="app">Corridas por app/central</option>
+              <option value="receita">Outras receitas</option>
+            </optgroup>
+            <optgroup label="Despesas do táxi">
+              <option value="combust" selected>Combustível (gasolina/GNV/etanol)</option>
+              <option value="manut">Peças e manutenção</option>
+              <option value="das">DAS mensal (MEI)</option>
+              <option value="docs">IPVA, licença, seguro, alvará</option>
+              <option value="taxas">Taxas (app, central, maquininha)</option>
+              <option value="lavagem">Lavagem e limpeza</option>
+              <option value="alim">Alimentação no turno</option>
+              <option value="outros">Outras despesas</option>
+            </optgroup>
+            <optgroup label="Uso pessoal">
+              <option value="retirada">Retirada para uso pessoal</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fValor">Valor (R$)</label>
+          <input id="fValor" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="0,00" required>
+        </div>
+        <div class="field">
+          <label for="fData">Data</label>
+          <input id="fData" type="date" required>
+        </div>
+        <div class="field">
+          <label for="fDesc">Descrição (opcional)</label>
+          <input id="fDesc" type="text" maxlength="80" placeholder="Ex.: troca de óleo">
+        </div>
+        <div class="field full"><button class="btn" type="submit">Adicionar lançamento</button></div>
+        <p class="formmsg" id="formMsg" role="status"></p>
+      </form>
+
+      <div class="listhead">
+        <h3 id="listTitle">Lançamentos do mês</h3>
+        <div id="clearBox"><button class="btn ghost" type="button" id="btnClear">Apagar exemplos</button></div>
+      </div>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th>Data</th><th>Tópico</th><th class="num">Valor</th><th><span class="sr" style="position:absolute;left:-9999px">Excluir</span></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Para onde foi o dinheiro</h2>
+        <div class="bars" id="bars"></div>
+        <div class="kpis">
+          <div class="field">
+            <label for="fKm">Km rodados no mês</label>
+            <input id="fKm" type="number" min="0" step="1" placeholder="Ex.: 4200">
+          </div>
+          <div class="kpi"><div class="lbl">Custo por km</div><div class="val" id="kCusto">—</div></div>
+          <div class="kpi"><div class="lbl">Ganho bruto por km</div><div class="val" id="kGanho">—</div></div>
+          <div class="kpi"><div class="lbl">Reserva sugerida (10%)</div><div class="val" id="kReserva">—</div></div>
+        </div>
+      </section>
+
+      <section class="panel limit">
+        <h2>Limite anual do MEI</h2>
+        <div class="bar">
+          <div class="row"><span id="limAno">Faturado no ano</span><span id="limVal">—</span></div>
+          <div class="track"><div class="fill" id="limFill" style="width:0%"></div></div>
+        </div>
+        <p id="limTxt">O MEI pode faturar até R$ 81.000 por ano (média de R$ 6.750 por mês).</p>
+      </section>
+
+      <section class="panel">
+        <h2>Dicas rápidas</h2>
+        <ul class="tips">
+          <li><span class="n">1</span><span><b>Separe as contas</b>Use uma conta só para o táxi. O dinheiro de casa sai dela apenas pela retirada pessoal.</span></li>
+          <li><span class="n">2</span><span><b>Retirada fixa</b>Defina um valor de pró-labore por mês e não tire além disso. O que sobra fica para manutenção e meses fracos.</span></li>
+          <li><span class="n">3</span><span><b>DAS até o dia 20</b>Pague o DAS todo mês. Atrasar gera multa e pode suspender o auxílio-doença e a aposentadoria pelo INSS.</span></li>
+          <li><span class="n">4</span><span><b>Anote no mesmo dia</b>Lance o combustível e as corridas ao fim de cada turno. Guarde notas de peças e serviços.</span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <p class="foot">Protótipo para trabalho de extensão. Os dados ficam salvos só neste navegador. Valor do DAS usado nos exemplos: R$ 86,05 (5% do salário mínimo para o INSS + R$ 5 de ISS); confirme o valor do ano no Portal do Empreendedor.</p>
+</main>
+
+<script>
+(function () {
+  const CATS = [
+    { id: 'corrida',   nome: 'Corridas (rua/ponto)',            tipo: 'receita' },
+    { id: 'app',       nome: 'Corridas por app/central',         tipo: 'receita' },
+    { id: 'receita',   nome: 'Outras receitas',                  tipo: 'receita' },
+    { id: 'combust',   nome: 'Combustível (gasolina/GNV/etanol)', tipo: 'despesa' },
+    { id: 'manut',     nome: 'Peças e manutenção',               tipo: 'despesa' },
+    { id: 'das',       nome: 'DAS mensal (MEI)',                 tipo: 'despesa' },
+    { id: 'docs',      nome: 'IPVA, licença, seguro, alvará',    tipo: 'despesa' },
+    { id: 'taxas',     nome: 'Taxas (app, central, maquininha)', tipo: 'despesa' },
+    { id: 'lavagem',   nome: 'Lavagem e limpeza',                tipo: 'despesa' },
+    { id: 'alim',      nome: 'Alimentação no turno',             tipo: 'despesa' },
+    { id: 'outros',    nome: 'Outras despesas',                  tipo: 'despesa' },
+    { id: 'retirada',  nome: 'Retirada para uso pessoal',        tipo: 'retirada' }
+  ];
+  const CAT = {};
+  CATS.forEach(c => { CAT[c.id] = c; });
+  const tipoDe = id => (CAT[id] ? CAT[id].tipo : 'despesa');
+  const nomeDe = id => (CAT[id] ? CAT[id].nome : id);
+  const LIMITE_MEI = 81000;
+  const KEY = 'taximetro-v1';
+  const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const $ = id => document.getElementById(id);
+
+  const EXEMPLOS = [
+    ['2026-09-30', 'corrida', 42300, 'Resumo jan–set'],
+    ['2026-10-01', 'combust', 280, 'Tanque cheio'],
+    ['2026-10-05', 'manut', 210, 'Troca de óleo e filtro'],
+    ['2026-10-05', 'retirada', 1000, 'Contas de casa'],
+    ['2026-10-07', 'corrida', 1480, 'Semana 1'],
+    ['2026-10-07', 'combust', 300, ''],
+    ['2026-10-09', 'lavagem', 40, ''],
+    ['2026-10-10', 'alim', 160, 'Almoços da semana'],
+    ['2026-10-12', 'combust', 290, ''],
+    ['2026-10-14', 'corrida', 1390, 'Semana 2'],
+    ['2026-10-14', 'manut', 180, 'Pastilhas de freio'],
+    ['2026-10-17', 'combust', 310, ''],
+    ['2026-10-18', 'das', 86.05, 'DAS de setembro'],
+    ['2026-10-19', 'corrida', 1120, 'Semana 3'],
+    ['2026-10-19', 'app', 620, 'Corridas pelo app'],
+    ['2026-10-19', 'taxas', 74, 'Taxas da maquininha'],
+    ['2026-10-19', 'retirada', 1000, 'Contas de casa']
+  ].map((r, i) => ({ id: 'ex' + i, data: r[0], cat: r[1], valor: r[2], desc: r[3], exemplo: true }));
+
+  let state = { itens: EXEMPLOS, km: { '2026-10': 4200 } };
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && Array.isArray(saved.itens)) state = { itens: saved.itens, km: saved.km || {} };
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+  // Mês inicial: o mês dos lançamentos mais recentes
+  const hoje = new Date();
+  const iso = d => d.toISOString().slice(0, 10);
+  const ultimo = state.itens.map(i => i.data).sort().pop();
+  $('mes').value = (ultimo || iso(hoje)).slice(0, 7);
+  $('fData').value = iso(hoje);
+
+  $('semJs').hidden = true;
+
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const nomeMes = ym => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); };
+
+  function render() {
+    const mes = $('mes').value;
+    const doMes = state.itens.filter(i => i.data.startsWith(mes)).sort((a, b) => b.data.localeCompare(a.data));
+    const soma = tipo => doMes.filter(i => tipoDe(i.cat) === tipo).reduce((s, i) => s + i.valor, 0);
+    const fat = soma('receita'), desp = soma('despesa'), ret = soma('retirada');
+    const lucro = fat - desp, sobra = lucro - ret;
+
+    $('sFat').textContent = brl.format(fat);
+    $('sDesp').textContent = brl.format(desp);
+    $('sDespSub').textContent = fat ? `${Math.round(desp / fat * 100)}% do faturamento` : 'combustível, peças, DAS…';
+    $('sRet').textContent = brl.format(ret);
+    $('sSobra').innerHTML = `<span class="${sobra >= 0 ? 'pos' : 'neg'}">${brl.format(sobra)}</span>`;
+    $('sLucro').textContent = `lucro do táxi ${brl.format(lucro)}`;
+
+    // Avisos
+    const al = [];
+    const temDas = doMes.some(i => i.cat === 'das');
+    al.push(temDas ? `<span class="chip ok">DAS pago neste mês</span>` : `<span class="chip warn">DAS ainda não lançado. Vence todo dia 20</span>`);
+    if (ret > lucro && fat > 0) al.push(`<span class="chip warn">Você retirou mais do que o táxi lucrou</span>`);
+    else if (fat > 0) al.push(`<span class="chip ok">Retirada dentro do lucro</span>`);
+    $('alerts').innerHTML = al.join('');
+
+    // Lista
+    $('listTitle').textContent = 'Lançamentos de ' + nomeMes(mes);
+    $('rows').innerHTML = doMes.length ? doMes.map(i => {
+      const c = CAT[i.cat] || { nome: i.cat, tipo: 'despesa' };
+      const cls = c.tipo === 'receita' ? 'pos' : 'neg';
+      const sinal = c.tipo === 'receita' ? '+' : '−';
+      const [y, m, d] = i.data.split('-');
+      return `<tr><td class="date">${d}/${m}</td>
+        <td><span class="cat">${esc(c.nome)}</span>${i.exemplo ? '<span class="tag">exemplo</span>' : ''}${i.desc ? `<div class="desc">${esc(i.desc)}</div>` : ''}</td>
+        <td class="num ${cls}">${sinal} ${brl.format(i.valor)}</td>
+        <td><button class="del" type="button" data-id="${i.id}" aria-label="Excluir lançamento">×</button></td></tr>`;
+    }).join('') : `<tr><td colspan="4" class="empty">Nenhum lançamento em ${nomeMes(mes)}. Use o formulário acima para lançar o primeiro.</td></tr>`;
+    $('clearBox').hidden = !state.itens.some(i => i.exemplo);
+
+    // Barras por categoria (despesas + retirada)
+    const porCat = {};
+    doMes.filter(i => tipoDe(i.cat) !== 'receita').forEach(i => porCat[i.cat] = (porCat[i.cat] || 0) + i.valor);
+    const ord = Object.entries(porCat).sort((a, b) => b[1] - a[1]);
+    const max = ord.length ? ord[0][1] : 1;
+    $('bars').innerHTML = ord.length ? ord.map(([k, v]) =>
+      `<div class="bar"><div class="row"><span>${esc(nomeDe(k))}</span><span>${brl.format(v)}</span></div>
+       <div class="track"><div class="fill ${k === 'combust' ? 'fuel' : ''}" style="width:${(v / max * 100).toFixed(1)}%"></div></div></div>`
+    ).join('') : `<p class="empty">Sem despesas neste mês.</p>`;
+
+    // Km
+    const km = state.km[mes] || '';
+    if (document.activeElement !== $('fKm')) $('fKm').value = km;
+    $('kCusto').textContent = km ? brl.format(desp / km) : '—';
+    $('kGanho').textContent = km ? brl.format(fat / km) : '—';
+    $('kReserva').textContent = brl.format(fat * 0.10);
+
+    // Limite anual
+    const ano = mes.slice(0, 4);
+    const fatAno = state.itens.filter(i => i.data.startsWith(ano) && tipoDe(i.cat) === 'receita').reduce((s, i) => s + i.valor, 0);
+    const pct = fatAno / LIMITE_MEI * 100;
+    $('limAno').textContent = `Faturado em ${ano}`;
+    $('limVal').textContent = `${brl.format(fatAno)} de ${brl.format(LIMITE_MEI)}`;
+    $('limFill').style.width = Math.min(pct, 100).toFixed(1) + '%';
+    $('limFill').classList.toggle('alert', pct >= 90);
+    $('limTxt').textContent = pct >= 100
+      ? 'Você passou do limite anual do MEI. Procure um contador para fazer o desenquadramento.'
+      : `Usado ${pct.toFixed(0)}% do limite. Restam ${brl.format(LIMITE_MEI - fatAno)} para o ano. A média permitida é R$ 6.750 por mês.`;
+  }
+
+  $('form').addEventListener('submit', e => {
+    e.preventDefault();
+    const valor = parseFloat(String($('fValor').value).replace(',', '.'));
+    const data = $('fData').value;
+    if (!data) { $('formMsg').textContent = 'Escolha a data do lançamento.'; return; }
+    if (!(valor > 0)) { $('formMsg').textContent = 'Digite um valor maior que zero.'; $('fValor').focus(); return; }
+    const item = { id: 'i' + Date.now(), data, cat: $('fCat').value, valor: Math.round(valor * 100) / 100, desc: $('fDesc').value.trim() };
+    state.itens.push(item);
+    save();
+    $('mes').value = data.slice(0, 7);
+    $('fValor').value = ''; $('fDesc').value = '';
+    $('formMsg').textContent = `${CAT[item.cat].nome}: ${brl.format(item.valor)} lançado.`;
+    render();
+  });
+
+  $('rows').addEventListener('click', e => {
+    const b = e.target.closest('.del'); if (!b) return;
+    state.itens = state.itens.filter(i => i.id !== b.dataset.id);
+    save(); render();
+  });
+
+  $('clearBox').addEventListener('click', e => {
+    const box = $('clearBox');
+    if (e.target.id === 'btnClear') {
+      box.innerHTML = '<div class="confirm">Apagar todos os exemplos? <button class="btn" type="button" id="yesClear">Apagar</button><button class="btn ghost" type="button" id="noClear">Cancelar</button></div>';
+    } else if (e.target.id === 'yesClear') {
+      state.itens = state.itens.filter(i => !i.exemplo); state.km = {};
+      save(); box.innerHTML = '<button class="btn ghost" type="button" id="btnClear">Apagar exemplos</button>'; render();
+    } else if (e.target.id === 'noClear') {
+      box.innerHTML = '<button class="btn ghost" type="button" id="btnClear">Apagar exemplos</button>';
+    }
+  });
+
+  $('fKm').addEventListener('input', () => {
+    const v = parseInt($('fKm').value, 10);
+    if (v > 0) state.km[$('mes').value] = v; else delete state.km[$('mes').value];
+    save(); render();
+  });
+  $('mes').addEventListener('change', render);
+
+  render();
+})();
+</script>
+</body>
+</html>

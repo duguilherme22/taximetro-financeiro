@@ -1,0 +1,19 @@
+{
+ "app": "taximetro",
+ "versao": 1,
+ "itens": [
+  {
+   "id": "a",
+   "data": "2026-08-03",
+   "cat": "combust",
+   "valor": 100,
+   "desc": "x",
+   "exemplo": false
+  }
+ ],
+ "km": {
+  "2026-08": 500
+ },
+ "kmEx": [],
+ "reservaPct": 10
+}
